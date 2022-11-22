@@ -12,7 +12,7 @@ export class DynamodbConnection {
                 Key: marshall({ ID: ID }),
             };
             const { Item } = await this.db.send(new GetItemCommand(params));
-            console.log("Successfully fetched information from DynamoDb")
+            console.log("--> Successfully fetched information from DynamoDb")
             return unmarshall(Item);
         } catch (e) {
             console.error(e);
@@ -33,7 +33,7 @@ export class DynamodbConnection {
                 },
             };
             const data = await this.db.send(new PutItemCommand(params));
-            console.log("Successfully added s3 bucket reference into DynamoDB");
+            console.log("--> Successfully added s3 bucket reference into DynamoDB");
             return data.$metadata.httpStatusCode;
         } catch (e) {
             console.error(e);

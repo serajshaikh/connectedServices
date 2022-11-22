@@ -23,22 +23,47 @@ const userController = {
         const fileName = "userData.json";
 
         const s3Obj = new S3Bucket();
-        console.log("--> File being Uploaded into S3Bucket....")
+        console.log("➡️ File uploading into S3Bucket....")
         const httpStatusCode = await s3Obj.uploadObjectBucket(bucketName, fileName, body)
         if (httpStatusCode) {
             const sqsObj = new SqsConnection();
             const snsObj = new SnsConnection();
             const dynamodbObj = new DynamodbConnection();
-            console.log("--> Message being added into sqs queue...")
+            console.log("➡️ Message adding into sqs queue...")
             const sqsRes = await sqsObj.sendMsg({ email, queueUrl });
             if (sqsRes) {
-                console.log("--> Message Being received from sqs queue... ")
+                console.log("➡️ Message receiving from sqs queue... ")
                 const sqsRecRes = await sqsObj.receiveMsg({ queueUrl });
                 if (typeof sqsRecRes === 'string' && EmailValidator.validate(sqsRecRes)) {
-                    console.log("--> Getting Email from sqs queue and SNS email being send....")
+                    console.log("➡️ Getting Email from sqs queue and SNS email being send....")
                     await snsObj.publish({ state: 1, subject, email, name, topicArn });
                 }
             }
+            console.log("➡️ Adding S3 Object reference to dynamodb table... ")
+            // const tableID= Math.floor(Math.random()*1000).toString();
+            const dynamodbRes = await dynamodbObj.connectS3ToDynamodb('1010', tableName, bucketName, fileName);
+            if (dynamodbRes) {
+                console.log("➡️ Message being added into sqs queue...")
+                const sqsDynamoRes = await sqsObj.sendMsg({ email, queueUrl });
+                if (sqsDynamoRes) {
+                    console.log("➡️ SNS Email sending to subscriber...");
+                    await snsObj.publish({ state: 3, subject, email, name, topicArn });
+                    console.log("➡️ Data being extracting from s3 bucket using dynamodb table...");
+                    const getData = await dynamodbObj.getItems("1010", tableName);
+                    const s3Res = await s3Obj.getObjectsFromS3(getData.S3BucketName, getData.BucketKey);//buckerKey is the name of the object in s3 bucket
+                    console.log(`--> S3 ${fileName} file data are...`);
+                    console.log(s3Res);
+                    console.log("➡️ Message Being received from sqs queue... ")
+                    const sqsDynamoRecRes = await sqsObj.receiveMsg({ queueUrl });
+                    if (typeof sqsDynamoRecRes === 'string' && EmailValidator.validate(sqsDynamoRecRes)) {
+                        console.log("➡️ Getting Email from sqs queue and SNS email being send....")
+                        await snsObj.publish({ state: 4, subject, email, name, topicArn });
+                    }
+
+                    console.log("🔥⚡Task Completed Successfully⚡🔥");
+                }
+            }
+
 
         }
     }
